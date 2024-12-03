@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sphere</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Syncopate:wght@400;700&family=Rajdhani:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000408;
+            color: white;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .content {
+            position: fixed;
+            z-index: 2;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .text-container {
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Major Mono Display', monospace;
+            font-size: 7vw;
+            font-weight: 400;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 1.5s ease forwards 2s;
+            position: relative;
+            padding-right: 0.3em;
+            background: linear-gradient(120deg, #fff, #3eb8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 20px rgba(62, 184, 255, 0.3));
+        }
+
+        .subtitle {
+            font-family: 'Syncopate', sans-serif;
+            font-size: 1vw;
+            font-weight: 400;
+            letter-spacing: 0.8em;
+            opacity: 0;
+            margin-top: 3em;
+            transform: translateY(20px);
+            animation: fadeInUp 1.5s ease forwards 2.5s;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .glowing-line {
+            position: absolute;
+            bottom: -2vw;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 1px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(62, 184, 255, 0.2) 20%,
+                rgba(62, 184, 255, 0.8) 50%,
+                rgba(62, 184, 255, 0.2) 80%,
+                transparent 100%
+            );
+            animation: lineExpand 1.5s ease forwards 3s;
+            box-shadow: 0 0 20px rgba(62, 184, 255, 0.5);
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes lineExpand {
+            to {
+                width: 80%;
+            }
+        }
+
+        .scroll-hint {
+            font-family: 'Rajdhani', sans-serif;
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9rem;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards 4s, bounce 2s infinite;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 0.4em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .scroll-hint i {
+            font-size: 1.2rem;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) translateX(-50%); }
+            50% { transform: translateY(-10px) translateX(-50%); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="content">
+        <div class="text-container">
+            <h1>COMING SOON</h1>
+            <div class="glowing-line"></div>
+            <div class="subtitle">THE FUTURE AWAITS</div>
+        </div>
+        <div class="scroll-hint">
+            <i class="fas fa-mouse"></i>
+            EXPLORE
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('WebGL is not supported');
+        }
+
+        const vertexShaderSource = `
+            attribute vec3 position;
+            attribute vec3 spherePosition;
+            uniform mat4 projection;
+            uniform mat4 view;
+            uniform float pointSize;
+            uniform float time;
+            uniform float sphereProgress;
+            
+            varying float depth;
+            varying float particleLife;
+            
+            void main() {
+                vec3 currentPos = mix(position, spherePosition, sphereProgress);
+                vec4 viewPosition = view * vec4(currentPos, 1.0);
+                gl_Position = projection * viewPosition;
+                depth = viewPosition.z;
+                particleLife = sphereProgress;
+                float size = pointSize * (1.0 + 0.5 * sin(time * 0.001 + position.x + position.y));
+                gl_PointSize = size * (20.0 / -viewPosition.z);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision mediump float;
+            varying float depth;
+            varying float particleLife;
+            
+            void main() {
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                float alpha = (1.0 - smoothstep(0.45, 0.5, dist)) * 0.8;
+                
+                float brightness = 0.7 + 0.3 * sin(depth * 0.5);
+                vec3 color = mix(vec3(0.2, 0.5, 1.0), vec3(0.4, 0.7, 1.0), particleLife) * brightness;
+                
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        function createShader(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        const program = gl.createProgram();
+        gl.attachShader(program, createShader(gl.VERTEX_SHADER, vertexShaderSource));
+        gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fragmentShaderSource));
+        gl.linkProgram(program);
+
+        const numParticles = 3000;
+        const positions = new Float32Array(numParticles * 3);
+        const spherePositions = new Float32Array(numParticles * 3);
+
+        for(let i = 0; i < numParticles; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 20;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+        }
+
+        for(let i = 0; i < numParticles; i++) {
+            const radius = 3;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            spherePositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+            spherePositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+            spherePositions[i * 3 + 2] = radius * Math.cos(phi);
+        }
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+        const sphereBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, spherePositions, gl.STATIC_DRAW);
+
+        // Camera and interaction variables
+        let cameraDistance = 12;
+        let rotationX = 0;
+        let rotationY = 0;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let momentum = { x: 0, y: 0 };
+        const friction = 0.95;
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            momentum = { x: 0, y: 0 };
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                momentum.x = deltaX * 0.002;
+                momentum.y = deltaY * 0.002;
+                
+                targetRotationX += momentum.x;
+                targetRotationY = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationY + momentum.y));
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            cameraDistance = Math.max(5, Math.min(20, cameraDistance + e.deltaY * 0.01));
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth * devicePixelRatio;
+            canvas.height = window.innerHeight * devicePixelRatio;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function perspective(fov, aspect, near, far) {
+            const f = 1.0 / Math.tan(fov / 2);
+            const nf = 1 / (near - far);
+            return new Float32Array([
+                f / aspect, 0, 0, 0,
+                0, f, 0, 0,
+                0, 0, (far + near) * nf, -1,
+                0, 0, 2 * far * near * nf, 0
+            ]);
+        }
+
+        const startTime = Date.now();
+
+        function render(time) {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const sphereProgress = Math.min(Math.max((elapsed - 1) / 2, 0), 1);
+
+            // Apply momentum when not dragging
+            if (!isDragging) {
+                momentum.x *= friction;
+                momentum.y *= friction;
+                targetRotationX += momentum.x;
+                targetRotationY = Math.max(-Math.PI/2, Math.min(Math.PI/2, targetRotationY + momentum.y));
+            }
+
+            // Smooth rotation
+            rotationX += (targetRotationX - rotationX) * 0.1;
+            rotationY += (targetRotationY - rotationY) * 0.1;
+
+            gl.clearColor(0, 0.016, 0.032, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
+            const aspect = canvas.width / canvas.height;
+            const projection = perspective(Math.PI / 4, aspect, 0.1, 100.0);
+
+            const cosX = Math.cos(rotationX);
+            const sinX = Math.sin(rotationX);
+            const cosY = Math.cos(rotationY);
+            const sinY = Math.sin(rotationY);
+
+            const view = new Float32Array([
+                cosX, 0, -sinX, 0,
+                sinX * sinY, cosY, cosX * sinY, 0,
+                sinX * cosY, -sinY, cosX * cosY, 0,
+                0, 0, -cameraDistance, 1
+            ]);
+
+            gl.useProgram(program);
+
+            gl.uniformMatrix4fv(gl.getUniformLocation(program, 'projection'), false, projection);
+            gl.uniformMatrix4fv(gl.getUniformLocation(program, 'view'), false, view);
+            gl.uniform1f(gl.getUniformLocation(program, 'pointSize'), devicePixelRatio * 3);
+            gl.uniform1f(gl.getUniformLocation(program, 'time'), time);
+            gl.uniform1f(gl.getUniformLocation(program, 'sphereProgress'), sphereProgress);
+
+            const positionLoc = gl.getAttribLocation(program, 'position');
+            gl.enableVertexAttribArray(positionLoc);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+
+            const spherePositionLoc = gl.getAttribLocation(program, 'spherePosition');
+            gl.enableVertexAttribArray(spherePositionLoc);
+            gl.bindBuffer(gl.ARRAY_BUFFER, sphereBuffer);
+            gl.vertexAttribPointer(spherePositionLoc, 3, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.POINTS, 0, numParticles);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
