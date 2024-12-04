@@ -44,76 +44,96 @@ export default function Home() {
    }
 
    const vertexShaderSource = `
-     attribute vec3 position;
-     attribute vec3 spherePosition;
-     uniform mat4 projection;
-     uniform mat4 view;
-     uniform float pointSize;
-     uniform float time;
-     uniform float sphereProgress;
-     uniform vec2 mousePos;
-     
-     varying float depth;
-     varying float particleLife;
-     varying float pulseEffect;
-     varying float mouseDistance;
-     
-     void main() {
-         float noiseTime = time * 0.001;
-         vec3 currentPos = mix(position, spherePosition, sphereProgress);
-         
-         currentPos.x += sin(noiseTime * 2.0 + currentPos.y) * (1.0 - sphereProgress) * 0.3;
-         currentPos.y += cos(noiseTime * 1.5 + currentPos.x) * (1.0 - sphereProgress) * 0.3;
-         currentPos.z += sin(noiseTime + currentPos.x + currentPos.y) * (1.0 - sphereProgress) * 0.3;
-         
-         vec4 viewPosition = view * vec4(currentPos, 1.0);
-         gl_Position = projection * viewPosition;
-         
-         depth = viewPosition.z;
-         particleLife = sphereProgress;
-         
-         float pulse = sin(noiseTime * 3.0 + position.x * 2.0 + position.y * 2.0) * 0.5 + 0.5;
-         float size = pointSize * (1.2 + pulse * 0.8);
-         gl_PointSize = size * (25.0 / -viewPosition.z);
-         
-         vec4 screenPos = projection * viewPosition;
-         vec2 ndc = screenPos.xy / screenPos.w;
-         mouseDistance = length(ndc - mousePos) * 2.0;
-         
-         pulseEffect = pulse;
-     }
+    precision highp float;
+    attribute vec3 position;
+    attribute vec3 spherePosition;
+    uniform mat4 projection;
+    uniform mat4 view;
+    uniform highp float time;
+    uniform float pointSize;
+    uniform float sphereProgress;
+    uniform vec2 mousePos;
+
+    varying float depth;
+    varying float particleLife;
+    varying float pulseEffect;
+    varying float mouseDistance;
+    varying float startOffset;
+
+    void main() {
+        float noiseTime = time * 0.001;
+        vec3 currentPos = mix(position, spherePosition, sphereProgress);
+
+        vec4 viewPosition = view * vec4(currentPos, 1.0);
+        gl_Position = projection * viewPosition;
+
+        depth = viewPosition.z;
+        particleLife = sphereProgress;
+
+        float pulse = sin(noiseTime * 3.0 + position.x * 2.0 + position.y * 2.0) * 0.5 + 0.5;
+        float size = pointSize * (1.2 + pulse * 0.8);
+        gl_PointSize = size * (25.0 / -viewPosition.z);
+
+        vec4 screenPos = projection * viewPosition;
+        vec2 ndc = screenPos.xy / screenPos.w;
+        mouseDistance = length(ndc - mousePos) * 2.0;
+
+        pulseEffect = pulse;
+
+        startOffset = fract(sin(dot(position.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.2; // 0 ~ 0.2
+    }
    `
 
    const fragmentShaderSource = `
-     precision mediump float;
-     varying float depth;
-     varying float particleLife;
-     varying float pulseEffect;
-     varying float mouseDistance;
-     
-     void main() {
-         vec2 coord = gl_PointCoord - vec2(0.5);
-         float dist = length(coord);
-         float softness = 0.05;
-         float glowStrength = (1.0 - dist) * 0.5;
-         float alpha = (1.0 - smoothstep(0.45, 0.5, dist)) * (0.7 + pulseEffect * 0.3);
-         
-         float brightness = 0.8 + 0.2 * sin(depth * 0.5 + particleLife * 3.14159);
-         
-         vec3 color1 = vec3(0.6, 0.2, 1.0);
-         vec3 color2 = vec3(0.2, 0.5, 1.0);
-         vec3 color3 = vec3(0.1, 0.8, 0.9);
-         
-         float mixFactor1 = sin(particleLife * 6.28318 + depth + pulseEffect) * 0.5 + 0.5;
-         float mixFactor2 = cos(particleLife * 3.14159 + depth * 0.5) * 0.5 + 0.5;
-         
-         vec3 color = mix(mix(color1, color2, mixFactor1), color3, mixFactor2) * brightness;
-         
-         float mouseGlow = smoothstep(0.8, 0.0, mouseDistance) * 0.5;
-         color = mix(color, vec3(1.0), mouseGlow);
-         
-         gl_FragColor = vec4(color, alpha);
-     }
+    precision highp float;
+    uniform highp float time;
+    varying float depth;
+    varying float particleLife;
+    varying float pulseEffect;
+    varying float mouseDistance;
+    varying float startOffset;
+
+    vec3 hsvToRgb(float h, float s, float v) {
+        float c = v * s;
+        float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0));
+        float m = v - c;
+        vec3 rgb;
+
+        if (h < 1.0 / 6.0) {
+            rgb = vec3(c, x, 0.0);
+        } else if (h < 2.0 / 6.0) {
+            rgb = vec3(x, c, 0.0);
+        } else if (h < 3.0 / 6.0) {
+            rgb = vec3(0.0, c, x);
+        } else if (h < 4.0 / 6.0) {
+            rgb = vec3(0.0, x, c);
+        } else if (h < 5.0 / 6.0) {
+            rgb = vec3(x, 0.0, c);
+        } else {
+            rgb = vec3(c, 0.0, x);
+        }
+
+        return rgb + vec3(m);
+    }
+
+    void main() {
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float dist = length(coord);
+
+        float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
+
+        float hue = mod(time * 0.0001 + startOffset, 1.0);
+        vec3 globalColor = hsvToRgb(hue, 1.0, 1.0);
+
+        vec3 startColor = vec3(0.8, 0.9, 1.0);
+        globalColor = mix(startColor, globalColor, 0.5);
+        globalColor *= 0.6;
+
+        float mouseGlow = smoothstep(0.8, 0.0, mouseDistance) * 0.5;
+        globalColor = mix(globalColor, vec3(1.0), mouseGlow);
+
+        gl_FragColor = vec4(globalColor, alpha);
+    }
    `
 
    function createShader(type: number, source: string): WebGLShader | null {
@@ -330,23 +350,29 @@ export default function Home() {
  }, [])
 
  return (
-   <main>
-     <canvas ref={canvasRef} />
-     <div className="custom-cursor" style={{ left: cursorPos.x, top: cursorPos.y }}>
-       <div className="cursor-dot" style={{ transform: `scale(${isPressed ? 1.5 : 1})` }} />
-       {!hasBeenPressed && <span className="drag-text">Click & Drag</span>}
-     </div>
-     <div className="content">
-       <div className="text-container">
-         <h1>COMING SOON</h1>
-         <div className="glowing-line"></div>
-         <div className="subtitle">THE FUTURE AWAITS</div>
-       </div>
-       <div className="scroll-hint">
-         <i className="fas fa-mouse"></i>
-         EXPLORE
-       </div>
-     </div>
-   </main>
- )
+  <main>
+    <canvas ref={canvasRef} />
+    <div className="custom-cursor" style={{ left: cursorPos.x, top: cursorPos.y }}>
+      <div className="cursor-dot" style={{ transform: `scale(${isPressed ? 1.5 : 1})` }} />
+      {!hasBeenPressed && <span className="drag-text">Click & Drag</span>}
+    </div>
+    <div className="content">
+      <div className="text-container">
+        <h1>COMING SOON</h1>
+        <div className="glowing-line"></div>
+        <div className="animated-future">
+          {Array.from('THE FUTURE AWAITS').map((char, index) => (
+            <span key={index} style={{ animationDelay: `${index * 0.1}s` }}>
+              {char === ' ' ? '\u00A0' : char}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="scroll-hint">
+        <i className="fas fa-mouse"></i>
+        EXPLORE
+      </div>
+    </div>
+  </main>
+)
 }

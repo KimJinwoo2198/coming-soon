@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   generator: 'Next.js',
   applicationName: 'Reporch',
   referrer: 'origin-when-cross-origin',
-  creator: 'ReporchH',
+  creator: 'Reporch',
   publisher: 'Reporch',
   formatDetection: {
     email: false,
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
         type: 'image/png',
       }
     ],
-    siteName: 'REPORCH',
+    siteName: 'Reporch',
     url: 'https://reporch.com',
   },
   twitter: {

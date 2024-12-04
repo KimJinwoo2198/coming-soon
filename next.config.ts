@@ -26,19 +26,19 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';",
-          },
-        ],
-      },
-    ];
-  },
+  // async headers() {
+  //   return [
+  //     {
+  //       source: "/(.*)",
+  //       headers: [
+  //         {
+  //           key: "Content-Security-Policy",
+  //           value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';",
+  //         },
+  //       ],
+  //     },
+  //   ];
+  // },
   eslint: {
     dirs: ["src"],
   },
