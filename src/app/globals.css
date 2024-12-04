@@ -159,14 +159,14 @@ h1 {
   font-weight: 400;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.9); /* 기본 텍스트 컬러를 명확히 지정 */
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .animated-future span {
   opacity: 0;
   transform: translateY(30px);
   animation: fadeInUp 1s ease forwards, glow 1.5s ease-in-out infinite;
-  animation-delay: 0s; /* 개별 딜레이는 JSX에서 설정 */
+  animation-delay: 0s;
 }
 
 @keyframes fadeInUp {
