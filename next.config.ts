@@ -32,10 +32,6 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-          {
             key: "Content-Security-Policy",
             value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';",
           },
