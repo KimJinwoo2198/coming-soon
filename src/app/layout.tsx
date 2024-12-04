@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: 'REPORCH | Coming Soon', 
     description: 'Launching Soon: REPORCH - Building Revolutionary Developer Tools',
     type: 'website',
-    locale: 'en_US',
+    locale: 'ko_KR',
     images: [
       {
         url: '/logo.png',
@@ -55,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=Syncopate:wght@400;700&family=Rajdhani:wght@300;400;500&display=swap" rel="stylesheet" />
       </head>
